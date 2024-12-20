@@ -62,7 +62,7 @@ Aggregate user data to provide the following metrics:
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone git@github.com:asmegithub/telecomDataAnalysis.git
    ```
 2. Install dependencies:
    ```bash
@@ -70,7 +70,7 @@ Aggregate user data to provide the following metrics:
    ```
 
 ### Running the Analysis
-1. Place the dataset in the `data/` directory.
+1. Place the dataset in the `data/` directory. or create a connection request at `db/`
 2. Execute analysis scripts from the `scripts/` folder:
    ```bash
    python scripts/analysis.py
@@ -93,4 +93,4 @@ Aggregate user data to provide the following metrics:
 - **Asmare Zelalem** - Junior Full Stack Developer and Data Analyst
 
 ## Contact
-For questions or suggestions, please contact Asmare at [email@example.com].
+For questions or suggestions, please contact Asmare at asmare.zelalem@aau.edu.et.
