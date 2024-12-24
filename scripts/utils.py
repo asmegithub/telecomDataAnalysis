@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.cluster import KMeans
-
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 def univariate_analysis(data, column, plot_type='hist', bins=30):
     """
@@ -38,28 +39,6 @@ def univariate_analysis(data, column, plot_type='hist', bins=30):
 # univariate_analysis(df, 'Dur. (s)', plot_type='hist')
 # univariate_analysis(df, 'UserID', plot_type='bar')
 
-def bivariate_analysis(data, column_x, column_y, plot_type='scatter'):
-    """
-    Perform bivariate analysis for two columns in the dataset.
-
-    Args:
-        data (DataFrame): The dataset to analyze.
-        column_x (str): The first column name (x-axis).
-        column_y (str): The second column name (y-axis).
-        plot_type (str): Type of plot ('scatter', 'correlation').
-    """
-    plt.figure(figsize=(8, 6))
-    if plot_type == 'scatter':
-        sns.scatterplot(x=column_x, y=column_y, data=data)
-        plt.title(f'{column_x} vs {column_y}')
-    elif plot_type == 'correlation':
-        corr_matrix = data[[column_x, column_y]].corr()
-        sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', cbar=True)
-        plt.title('Correlation Matrix')
-    else:
-        print(f"Plot type {plot_type} not supported.")
-        return
-    plt.show()
 
 # Example usage:
 # bivariate_analysis(df, 'Dur. (s)', 'Total Data (Bytes)', plot_type='scatter')
@@ -83,6 +62,217 @@ def summary_statistics(data, columns):
 
 # User Engagement Analysis
 # User Engagement Analysis
+
+# Bearer Id', 'Start', 'Start ms', 'End', 'End ms', 'Dur. (ms)',
+    #    'IMSI', 'MSISDN/Number', 'IMEI', 'Last Location Name',
+    #    'Avg RTT DL (ms)', 'Avg RTT UL (ms)', 'Avg Bearer TP DL (kbps)',
+    #    'Avg Bearer TP UL (kbps)', 'TCP DL Retrans. Vol (Bytes)',
+    #    'TCP UL Retrans. Vol (Bytes)', 'DL TP < 50 Kbps (%)',
+    #    '50 Kbps < DL TP < 250 Kbps (%)', '250 Kbps < DL TP < 1 Mbps (%)',
+    #    'DL TP > 1 Mbps (%)', 'UL TP < 10 Kbps (%)',
+    #    '10 Kbps < UL TP < 50 Kbps (%)', '50 Kbps < UL TP < 300 Kbps (%)',
+    #    'UL TP > 300 Kbps (%)', 'HTTP DL (Bytes)', 'HTTP UL (Bytes)',
+    #    'Activity Duration DL (ms)', 'Activity Duration UL (ms)',
+    #    'Dur. (ms).1', 'Handset Manufacturer', 'Handset Type',
+    #    'Nb of sec with 125000B < Vol DL',
+    #    'Nb of sec with 1250B < Vol UL < 6250B',
+    #    'Nb of sec with 31250B < Vol DL < 125000B',
+    #    'Nb of sec with 37500B < Vol UL',
+    #    'Nb of sec with 6250B < Vol DL < 31250B',
+    #    'Nb of sec with 6250B < Vol UL < 37500B',
+    #    'Nb of sec with Vol DL < 6250B', 'Nb of sec with Vol UL < 1250B',
+    #    'Social Media DL (Bytes)', 'Social Media UL (Bytes)',
+    #    'Google DL (Bytes)', 'Google UL (Bytes)', 'Email DL (Bytes)',
+    #    'Email UL (Bytes)', 'Youtube DL (Bytes)', 'Youtube UL (Bytes)',
+    #    'Netflix DL (Bytes)', 'Netflix UL (Bytes)', 'Gaming DL (Bytes)',
+    #    'Gaming UL (Bytes)', 'Other DL (Bytes)', 'Other UL (Bytes)',
+    #    'Total UL (Bytes)', 'Total DL (Bytes)'], dtype=object)
+
+
+
+
+
+def segment_users(df):
+    """
+    Segment users into deciles and compute total data usage.
+    """
+    # Updated column names for total duration
+    duration_columns = [
+        'Social Media DL (Bytes)', 'Google DL (Bytes)', 'Email DL (Bytes)',
+        'Youtube DL (Bytes)', 'Netflix DL (Bytes)', 'Gaming DL (Bytes)',
+        'Other DL (Bytes)'
+    ]
+    if not all(col in df.columns for col in duration_columns):
+        raise KeyError("One or more duration columns are missing from the dataset.")
+
+    # Compute total duration
+    df['Total Duration'] = df[duration_columns].sum(axis=1)
+    
+    # Segment into deciles
+    df['Decile Class'] = pd.qcut(df['Total Duration'], 10, labels=False) + 1
+    
+    # Compute total data (Download + Upload)
+    df['Total Data'] = df['Total DL (Bytes)'] + df['Total UL (Bytes)']
+    
+    # Aggregate total data per decile
+    decile_data = df.groupby('Decile Class')['Total Data'].sum().reset_index()
+    
+    return df, decile_data
+
+def compute_basic_metrics(df):
+    """
+    Compute and display basic metrics like mean, median, and standard deviation.
+    """
+    mean = df.mean(numeric_only=True)
+    median = df.median(numeric_only=True)
+    std_dev = df.std(numeric_only=True)
+    
+    print("\nMean:\n", mean)
+    print("\nMedian:\n", median)
+    print("\nStandard Deviation:\n", std_dev)
+    
+    return mean, median, std_dev
+
+def non_graphical_univariate_analysis(df):
+    """
+    Compute dispersion parameters for quantitative variables.
+    """
+    dispersion = df.describe().T[['mean', 'std', 'min', '25%', '50%', '75%', 'max']]
+    print("\nDispersion Parameters:\n", dispersion)
+    return dispersion
+
+def plot_univariate_graphs(df):
+    """
+    Create histograms for numeric variables with improved stability.
+    """
+    # Sample data to avoid memory issues
+    sample_df = df.sample(n=10000) if len(df) > 10000 else df
+    
+    # Select numeric columns
+    numeric_columns = sample_df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_columns:
+        try:
+            # Handle NaN values
+            data = sample_df[col].dropna()
+            if len(data) == 0:  # Skip empty columns
+                continue
+            
+            # Plot distribution
+            plt.figure(figsize=(8, 4))
+            sns.histplot(data, kde=True)
+            plt.title(f"Distribution of {col}")
+            plt.xlabel(col)
+            plt.ylabel("Frequency")
+            plt.show()
+        except Exception as e:
+            print(f"Could not plot {col}: {e}")
+
+
+def bivariate_analysis(df):
+    """
+    Explore relationships between application data and total data usage.
+    """
+    duration_columns = [
+        'Social Media DL (Bytes)', 'Google DL (Bytes)', 'Email DL (Bytes)',
+        'Youtube DL (Bytes)', 'Netflix DL (Bytes)', 'Gaming DL (Bytes)',
+        'Other DL (Bytes)'
+    ]
+    if 'Total Data' not in df.columns:
+        raise KeyError("The 'Total Data' column is missing. Ensure it is computed before running this function.")
+
+    for app in duration_columns:
+        plt.figure(figsize=(8, 6))
+        sns.scatterplot(x=app, y='Total Data', data=df)
+        plt.title(f"{app} vs Total Data")
+        plt.xlabel(app)
+        plt.ylabel("Total Data")
+        plt.show()
+
+def correlation_analysis(df):
+    """
+    Compute and visualize correlation matrix for application data.
+    """
+    correlation_vars = [
+        'Social Media DL (Bytes)', 'Google DL (Bytes)', 'Email DL (Bytes)',
+        'Youtube DL (Bytes)', 'Netflix DL (Bytes)', 'Gaming DL (Bytes)',
+        'Other DL (Bytes)'
+    ]
+    if not all(col in df.columns for col in correlation_vars):
+        raise KeyError("One or more correlation variables are missing from the dataset.")
+
+    correlation_matrix = df[correlation_vars].corr()
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm')
+    plt.title("Correlation Matrix")
+    plt.show()
+    return correlation_matrix
+
+def perform_pca(df, n_components=3):
+    """
+    Perform PCA on selected variables and return results.
+
+    Args:
+        df (DataFrame): The input dataset.
+        n_components (int): Number of PCA components.
+
+    Returns:
+        Tuple: PCA results and explained variance ratio.
+    """
+    # Correct column names
+    pca_vars = ['Social Media DL (Bytes)', 'Social Media UL (Bytes)',
+                'Google DL (Bytes)', 'Google UL (Bytes)',
+                'Email DL (Bytes)', 'Email UL (Bytes)',
+                'Youtube DL (Bytes)', 'Youtube UL (Bytes)',
+                'Netflix DL (Bytes)', 'Netflix UL (Bytes)',
+                'Gaming DL (Bytes)', 'Gaming UL (Bytes)',
+                'Other DL (Bytes)', 'Other UL (Bytes)']
+    
+    # Check if all required columns are in the dataset
+    missing_columns = [col for col in pca_vars if col not in df.columns]
+    if missing_columns:
+        raise KeyError(f"The following required columns are missing: {missing_columns}")
+    
+    # Handle missing values by filling them with column means
+    df_cleaned = df[pca_vars].fillna(df[pca_vars].mean())
+    
+    # Standardize the data
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(df_cleaned)
+    
+    # Perform PCA
+    pca = PCA(n_components=n_components)
+    pca_results = pca.fit_transform(scaled_data)
+    explained_variance = pca.explained_variance_ratio_
+    
+    print("\nExplained Variance by PCA Components:\n", explained_variance)
+    return pca_results, explained_variance
+
+
+def visualize_pca(df, pca_results):
+    """
+    Add PCA results to dataset and visualize PCA scatterplot.
+
+    Args:
+        df (DataFrame): The input dataset.
+        pca_results (ndarray): The PCA-transformed data.
+
+    Returns:
+        None
+    """
+    if pca_results.shape[1] < 2:
+        raise ValueError("PCA results must have at least two components to visualize.")
+    
+    # Add PCA results to the dataset
+    df['PCA1'] = pca_results[:, 0]
+    df['PCA2'] = pca_results[:, 1]
+    
+    # Plot PCA scatterplot
+    plt.figure(figsize=(8, 6))
+    sns.scatterplot(x='PCA1', y='PCA2', data=df)
+    plt.title("PCA1 vs PCA2")
+    plt.xlabel("PCA1")
+    plt.ylabel("PCA2")
+    plt.show()
 
 class EngagementAnalyzer:
     def __init__(self, df):
