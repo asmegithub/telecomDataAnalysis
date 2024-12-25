@@ -274,6 +274,15 @@ def visualize_pca(df, pca_results):
     plt.ylabel("PCA2")
     plt.show()
 
+# Handling outliers (replace values beyond 3 standard deviations with the mean)
+def replace_outliers_with_mean(column, df):
+    mean = df[column].mean()
+    std_dev = df[column].std()
+    outlier_threshold = 3 * std_dev
+    df[column] = np.where(
+        np.abs(df[column] - mean) > outlier_threshold, mean, df[column]
+    )
+
 class EngagementAnalyzer:
     def __init__(self, df):
         self.df = df
